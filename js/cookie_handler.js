@@ -1,7 +1,7 @@
 
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log(decodeURIComponent(document.cookie));
+  // console.log(decodeURIComponent(document.cookie));
   addModalWindow();
 });
 
@@ -14,7 +14,6 @@ const showModal = () => {
 const closeModal = () => {
     const modal = document.getElementById('modal');
     modal.classList.remove('is-open');
-    console.log(modal);
 };
 
 
@@ -25,6 +24,7 @@ const addButton = (parentElementId,func) => {
   button.innerHTML = '2¢';
   button.classList.add("my2cents-button");
   button.classList.add("js-modal-open");
+  button.id = parentElementId + '-bt';
   article.appendChild(button); 
 };
 
@@ -54,24 +54,19 @@ const getCookie = (cookieName) => {
     return "";
 };
 
-const setUserCookie = () => {
-  setCookie('session_token',1234567890,1);
-};
-
 const setLocalStorage = () =>{
   localStorage.setItem("lastname", "Smith");
 };
 
 const getUserCookie = (reviewId) => {
-  const sessionToken = getCookie('session_token');
-  console.log(sessionToken);
-  if (sessionToken) {
-    console.log('Your session_token: ' + sessionToken);
+  const sessionKey = getCookie('sessionKey');
+  if (sessionKey) {
+    console.log('Your session_token: ' + sessionKey);
     console.log("You're trying to pay for article: " + reviewId);
+    disableWidgetButton(reviewId+'-bt');
   } else {
+    clearError();
     showModal();
-    // console.log('Trying to fetch user data..');
-    setCookie('session_token',1234567890,1);
   }
 };
 
@@ -111,12 +106,19 @@ const addModalWindow = () => {
   const emailInput = document.createElement('input');
   emailInput.type = 'text';
   emailInput.placeholder = 'Email';
+  emailInput.id = 'username';
   input.appendChild(emailInput);
   
   const PasswordInput = document.createElement('input');
   PasswordInput.type = 'Password';
   PasswordInput.placeholder = 'Password';
+  PasswordInput.id = 'password';
   input.appendChild(PasswordInput);
+  const errorMessage = document.createElement('p');
+  errorMessage.innerHTML = 'Wrong login name or password';
+  errorMessage.id = 'error_message';
+  errorMessage.classList.add('error');
+  input.appendChild(errorMessage);
   
   const submitDiv = document.createElement('div');
   submitDiv.classList.add('submit');
@@ -129,8 +131,76 @@ const addModalWindow = () => {
   signup.innerHTML = 'Sign Up';
   submitDiv.appendChild(signup);
   const signIn = document.createElement('button');
+  signIn.onclick = sendUserData;
   signIn.innerHTML = 'Sign In';
   submitDiv.appendChild(signIn);
   // const closeDiv = document.createElement('div');
   // closeDiv.classList.add('modal-screen');
 };
+
+const sendUserData = (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const user = {username,password};
+  loginRequest(user);
+};
+
+// const postUser = user => (
+//   $.ajax({
+//     url: '/api/users',
+//     method: 'POST',
+//     data: {user}
+//   })
+// );
+
+const loginRequest = user => {
+  console.log(JSON.stringify({user}));
+  $.ajax({
+    url: 'http://localhost:8000/api/session/',
+    method: 'POST',
+    data:  JSON.stringify({user})  
+  }).then(userResponse => (handleResponse(userResponse)), err => (
+      console.log('Error:' + err.responseJSON))
+  );
+};
+
+const handleResponse = userResponse => {
+  // const userCredentials = Object.values(userResponse['user']);
+  const sessionKey =  userResponse["user"]['sessionKey'];
+  if (sessionKey) {
+    setCookie('sessionKey',sessionKey,1);
+    closeModal();    
+  } else {
+    handleError();
+  }
+};
+
+const handleError = () => {
+  const errorMessage = document.getElementById('error_message');
+  errorMessage.style.display = 'block';
+};
+
+const clearError = () => {
+  const errorMessage = document.getElementById('error_message');
+  errorMessage.style.display = 'none';
+};
+
+const disableWidgetButton = id => {
+  const button = document.getElementById(id);
+  button.disabled = true;
+  button.classList.add('paid-botton');
+  button.classList.remove('my2cents-button');
+};
+
+// const login = () => loginRequest(userdata)
+//   .then(user => (console.log(user)), err => (
+//     console.log(err.responseJSON))
+//   );
+
+// const logout = () => (
+//   $.ajax({
+//     url: '/api/session',
+//     method: 'DELETE',
+//   })
+// );
